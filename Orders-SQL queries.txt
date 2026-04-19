@@ -1,0 +1,119 @@
+Query 1: Total Sales and Profit by Region
+
+SELECT
+    Region,
+	ROUND(SUM(Sales), 2) AS Total_Sales,
+	ROUND(SUM(Profit), 2) AS Total_Profit
+FROM orders
+GROUP BY Region
+ORDER BY Total_Sales DESC;
+
+
+
+Query 2: Top 10 Customers by Revenue
+SELECT
+    `Customer Name`,
+	ROUND(SUM(Sales), 2) AS Total_Revenue,
+	COUNT (DISTINCT `Order ID`) AS Total_Orders
+FROM orders
+GROUP BY `Customer Name`
+ORDER BY Total_Revenue DESC
+LIMIT 10;
+
+
+Query 3 — Orders per Ship Mode
+SELECT
+    `Ship Mode`,
+	COUNT(DISTINCT `Order ID`) AS  Total_Orders,
+	ROUND(SUM(Sales), 2) AS Total_Sales
+FROM orders
+GROUP BY `Ship Mode`
+ORDER BY Total_Orders DESC;
+
+
+Query 4 — Which Sub-Categories are losing money?
+SELECT
+    `Sub-Category`,
+	Category,
+	ROUND(SUM(Profit), 2) AS Total_Profit,
+	ROUND(SUM(Sales), 2) AS Total_Sales
+FROM orders
+GROUP BY `Sub-Category`, Category
+HAVING SUM(Profit) < 0
+ORDER BY Total_Profit ASC;
+
+
+Query 5 — Average Discount per Category
+SELECT
+    Category,
+	ROUND(AVG(Discount), 2) AS Avg_Discount,
+	ROUND(SUM(Profit), 2) AS Total_Profit
+FROM orders
+GROUP BY Category
+ORDER BY Avg_Discount DESC;
+
+
+Query 6 — Which States have more than 100 orders?
+SELECT
+    `State/Province`,
+	COUNT(DISTINCT `Order ID`) AS Total_Orders,
+	ROUND(SUM(Sales), 2) AS Total_Sales
+FROM orders
+GROUP BY `State/Province`
+HAVING COUNT(DISTINCT `Order ID`) > 100
+ORDER BY Total_Orders DESC;
+
+
+Query 7 — Do higher discounts lead to lower profit?
+SELECT
+    CASE
+	  WHEN Discount = 0 THEN '0% - No Discount'
+	  WHEN Discount <= 0.2 THEN '1% - 20%'
+	  WHEN Discount <= 0.4 THEN '21% - 40%'
+	  ELSE 'Above 40%'
+	END AS Discount_Bracket,
+	COUNT(*) AS Total_Orders,
+	ROUND (AVG(Profit), 2) AS Avg_Profit,
+	ROUND(AVG(Sales), 2) AS Avg_Sales
+FROM orders
+GROUP BY Discount_Bracket
+ORDER BY Avg_Profit DESC;
+
+
+Query 8 — Top 20% of Customers by Revenue (NTILE)
+SELECT
+    `Customer Name`,
+	ROUND(SUM(Sales), 2) AS Total_Revenue,
+    NTILE(5) OVER(ORDER BY SUM(Sales) DESC) AS Revenue_Tier
+FROM orders
+GROUP BY `Customer Name`
+ORDER BY Total_Revenue DESC
+LIMIT 20;
+
+
+Query 9: Month over Month Sales Growth
+WITH Monthly_Sales AS (
+    SELECT 
+        SUBSTR(`Order Date`, -4, 4) AS Year,
+        PRINTF('%02d', CAST(SUBSTR(`Order Date`, 1, INSTR(`Order Date`, '/') - 1) AS INTEGER)) AS Month,
+        ROUND(SUM(Sales), 2) AS Total_Sales
+    FROM orders
+    GROUP BY Year, Month
+),
+Sales_With_Lag AS (
+    SELECT 
+        Year,
+        Month,
+        Total_Sales,
+        LAG(Total_Sales) OVER (ORDER BY Year, Month) AS Prev_Month_Sales
+    FROM Monthly_Sales
+)
+SELECT 
+    Year,
+    Month,
+    Total_Sales,
+    Prev_Month_Sales,
+    ROUND((Total_Sales - Prev_Month_Sales) / Prev_Month_Sales * 100, 2) AS MoM_Growth_Pct
+FROM Sales_With_Lag
+WHERE Prev_Month_Sales IS NOT NULL
+ORDER BY Year, Month;
